@@ -1,0 +1,7 @@
+[project]
+name = "confirmez-vos-competences-en-mlops-partie-2"
+version = "0.1.0"
+description = "Projet 8 de la formation OpenClassrooms."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
