@@ -4,4 +4,24 @@ version = "0.1.0"
 description = "Projet 8 de la formation OpenClassrooms."
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "fastapi>=0.143.2",
+    "joblib>=1.6.0",
+    "lightgbm>=4.7.0",
+    "numpy>=2.5.4",
+    "pandas>=3.0.6",
+    "pydantic>=2.14.1",
+    "pydantic-settings>=2.16.0",
+    "python-dotenv>=1.2.4",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

@@ -1,0 +1,33 @@
+name: CI – Tests & Lint
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Installer les dépendances
+        run: uv sync --frozen
+
+      - name: Lancer les tests avec pytest
+        env:
+          MODEL_PATH: models/model.joblib
+          API_KEY: test-key
+        run: uv run pytest --tb=short -q
