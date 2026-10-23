@@ -1,8 +1,8 @@
-name: CD – Build & Deploy
+name: CD - Build & Deploy
 
 on:
   workflow_run:
-    workflows: ["CI – Tests & Lint"]
+    workflows: ["CI - Tests & Lint"]
     types: [completed]
     branches: [main, develop]
   workflow_dispatch:
