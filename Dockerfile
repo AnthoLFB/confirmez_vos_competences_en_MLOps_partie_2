@@ -14,6 +14,11 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
+# Installer les dépendances système nécessaires (libgomp1 pour LightGBM)
+RUN apt-get update && apt-get install -y \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copier l'environnement virtuel créé par uv
 COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
