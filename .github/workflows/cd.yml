@@ -10,8 +10,10 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    # Ne s'exécute que si le workflow CI a réussi
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # S'exécute si le CI a réussi OU si lancé manuellement
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
 
     permissions:
       packages: write
