@@ -68,7 +68,12 @@ jobs:
             -p 8000:8000 \
             -e API_KEY=${{ secrets.API_KEY }} \
             ghcr.io/${REPO_LOWER}:latest
-          echo "Conteneur démarré. Attente du health-check..."
-          sleep 5
-          curl --fail http://localhost:8000/health || exit 1
-          echo "✅ Déploiement réussi – API opérationnelle."
+          echo "Conteneur démarré. Attente du health-check (15s)..."
+          sleep 15
+          if curl --fail http://localhost:8000/health; then
+            echo "✅ Déploiement réussi – API opérationnelle."
+          else
+            echo "❌ Le health-check a échoué. Voici les logs du conteneur :"
+            docker logs scoring-api
+            exit 1
+          fi
