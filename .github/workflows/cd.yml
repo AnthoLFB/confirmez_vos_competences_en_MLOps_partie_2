@@ -1,8 +1,8 @@
-name: CD – Build & Deploy
+name: CD - Build & Deploy
 
 on:
   workflow_run:
-    workflows: ["CI – Tests & Lint"]
+    workflows: ["CI - Tests & Lint"]
     types: [completed]
     branches: [main, develop]
   workflow_dispatch:
@@ -38,6 +38,9 @@ jobs:
           tags: |
             type=sha
             type=raw,value=latest
+          # Force la mise en minuscules du nom de l'image
+          flavor: |
+            latest=true
 
       - name: Construire et pousser l'image Docker
         uses: docker/build-push-action@v6
@@ -46,6 +49,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Docker exige des noms en minuscules, on force la conversion ici
+          build-args: |
+            REPO_NAME=${{ github.repository }}
 
   deploy:
     runs-on: ubuntu-latest
@@ -54,12 +60,14 @@ jobs:
     steps:
       - name: Déployer le conteneur (simulation locale)
         run: |
-          echo "=== Déploiement de l'image ghcr.io/${{ github.repository }}:latest ==="
-          docker pull ghcr.io/${{ github.repository }}:latest
+          # Conversion du nom du repo en minuscules pour Docker
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "=== Déploiement de l'image ghcr.io/${REPO_LOWER}:latest ==="
+          docker pull ghcr.io/${REPO_LOWER}:latest
           docker run -d --name scoring-api \
             -p 8000:8000 \
             -e API_KEY=${{ secrets.API_KEY }} \
-            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${REPO_LOWER}:latest
           echo "Conteneur démarré. Attente du health-check..."
           sleep 5
           curl --fail http://localhost:8000/health || exit 1
