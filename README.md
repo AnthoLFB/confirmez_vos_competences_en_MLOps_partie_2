@@ -226,3 +226,30 @@ Les tests couvrent :
 - API : champ obligatoire manquant, valeurs hors plage (revenu nul, âge
   aberrant), type incorrect sur un champ principal et sur `extra_features`,
   champ non déclaré, absence de modèle (`503`), état remonté par `/health`.
+
+## Monitoring en production
+
+**Stockage** : chaque appel à `/predict` est écrit en JSON Lines dans `logs/predictions_AAAA-MM-JJ.jsonl` (`app/monitoring.py`) : timestamp, inputs (features), output (probabilité, décision), latence en ms, code HTTP, erreur éventuelle. Un fichier par jour : rotation et purge simples (coût de stockage maîtrisé). Aucun identifiant client n'est stocké (RGPD). Le dossier est configurable via `LOG_DIR`. En production, ces fichiers peuvent être collectés vers PostgreSQL/Elasticsearch.
+
+**Analyse** : `python scripts/monitor.py` compare les inputs loggés à un échantillon de `data/application_train.csv` (référence) avec Evidently (`reports/drift_report.html`) et vérifie le taux d'erreur (>5 %), la latence p95 (>500 ms) et la part de colonnes en drift (>30 %). Code retour 1 en cas d'alerte (planifiable via cron/CI).
+
+**Points de vigilance** : minimum de 30 requêtes pour le drift ; surveiller la distribution des scores et du taux de refus ; le drift des inputs ne prouve pas une baisse de performance (les labels réels arrivent en différé) ; ré-entraîner si un drift persistant est confirmé.
+
+### Les métriques expliquées
+
+| Métrique | Calcul | Seuil d'alerte | Ce que ça signale |
+|---|---|---|---|
+| Taux d'erreur | part des appels avec `status_code >= 400` | > 5 % | bug, modèle absent (503), erreur interne (500) |
+| Latence moyenne | moyenne de `latency_ms` | - | indicateur général, sensible aux valeurs extrêmes |
+| Latence p95 | 95 % des appels sont plus rapides que cette valeur | > 500 ms | lenteurs qui touchent une minorité d'utilisateurs, invisibles dans la moyenne |
+| Part de colonnes en drift | colonnes dont la distribution diffère de la référence / colonnes analysées | > 30 % | les clients reçus ne ressemblent plus à ceux de l'entraînement |
+
+**Data drift** : Evidently compare, colonne par colonne, la distribution des inputs de production (`current`) à celle de l'entraînement (`reference`, échantillon de `application_train.csv`) via un test statistique (par défaut Kolmogorov-Smirnov pour le numérique, avec une p-value). Une colonne est « en drift » si le test conclut que les deux distributions diffèrent. Le rapport `reports/drift_report.html` détaille chaque colonne. Le drift est calculé uniquement sur les appels réussis (200) et s'il y a au moins 30 requêtes.
+
+**Pourquoi le p95 plutôt que le max ?** Le max dépend d'un seul appel isolé ; le p95 reflète l'expérience réelle de la quasi-totalité des appels.
+
+**Limite** : un drift des inputs ne prouve pas que le modèle se dégrade (les vrais labels arrivent plus tard). C'est un signal d'alerte à investiguer, pas une preuve.
+
+### Tests du monitoring
+
+`tests/test_monitoring.py` vérifie : le contenu d'une ligne de log (inputs, output, latence, statut), l'absence de log pour une requête rejetée (422), l'enregistrement des erreurs, et les alertes de taux d'erreur et de latence. Les tests écrivent dans un dossier temporaire (fixture `log_dir`), jamais dans `logs/`. Lancer : `uv run pytest`.
