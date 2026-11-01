@@ -6,3 +6,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 outputs/
+logs/
+reports/
+logs_sim/
