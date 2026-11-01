@@ -92,12 +92,12 @@ def prepare_input(
         frame = raw.copy()
 
     # On ajoute les colonnes manquantes afin de disposer de toutes les features du modèle.
-    for col in feature_names:
-        if col not in frame.columns:
-            frame[col] = np.nan
+    missing_cols = {col: np.nan for col in feature_names if col not in frame.columns}
+    if missing_cols:
+        frame = pd.concat([frame, pd.DataFrame(missing_cols, index=frame.index)], axis=1)
 
     # On ne conserve que les colonnes attendues et dans le bon ordre.
-    frame = frame[feature_names]
+    frame = frame[feature_names].copy()
 
     # Les valeurs non convertibles en numérique deviennent NaN avant imputation.
     frame = frame.apply(pd.to_numeric, errors="coerce")
