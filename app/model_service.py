@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import joblib
+import numpy as np
 import pandas as pd
 
 from app.preprocessing import prepare_input
@@ -62,9 +63,9 @@ def save_model(bundle: ModelBundle, path: Path) -> None:
 
 def predict(bundle: ModelBundle, features: dict) -> dict:
     """Calcule la probabilité de défaut et la décision associée pour un client."""
-    frame = prepare_input(features, bundle.feature_names, bundle.medians)
+    input_data = prepare_input(features, bundle.feature_names, bundle.medians)
     # L'API native LightGBM renvoie directement les probabilités de la classe positive.
-    probability = float(bundle.model.predict(frame)[0])
+    probability = float(bundle.model.predict(input_data)[0])
     decision = int(probability >= bundle.threshold)
     return {
         "probability_default": probability,
@@ -76,7 +77,14 @@ def predict(bundle: ModelBundle, features: dict) -> dict:
 
 def predict_batch(bundle: ModelBundle, frame: pd.DataFrame) -> pd.DataFrame:
     """Variante batch utile pour les tests et scripts d'évaluation."""
-    prepared = prepare_input(frame, bundle.feature_names, bundle.medians)
+    # Note: On conserve l'usage de prepare_input qui renvoie maintenant un numpy array,
+    # mais predict_batch est généralement utilisé sur des DataFrames complets.
+    # Pour un batch, on peut appeler prepare_input ligne par ligne ou adapter.
+    # Ici on l'adapte pour rester compatible avec le retour DataFrame attendu.
+    prepared = np.vstack([
+        prepare_input(row, bundle.feature_names, bundle.medians)
+        for _, row in frame.iterrows()
+    ])
     probabilities = bundle.model.predict(prepared)
     decisions = (probabilities >= bundle.threshold).astype(int)
     return pd.DataFrame(
