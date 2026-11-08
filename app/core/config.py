@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     # Dossier contenant les CSV du dataset Home Credit utilisés pour l'entraînement.
     data_dir: Path = Path("data")
 
+    # Dossier de stockage des logs de production (JSONL, un fichier par jour).
+    log_dir: Path = Path("logs")
+
 
 # Instance unique partagée par toute l'application pour éviter de recharger le .env à chaque appel.
 settings = Settings()

@@ -17,6 +17,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import settings
 from app.main import app
 from app.model_service import ModelBundle
 
@@ -53,6 +54,13 @@ def fake_bundle() -> ModelBundle:
         medians=medians,
         threshold=0.5,
     )
+
+
+@pytest.fixture(autouse=True)
+def log_dir(tmp_path, monkeypatch):
+    """Redirige les logs de production vers un dossier temporaire."""
+    monkeypatch.setattr(settings, "log_dir", tmp_path / "logs")
+    return settings.log_dir
 
 
 @pytest.fixture

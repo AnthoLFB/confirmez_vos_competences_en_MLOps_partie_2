@@ -79,31 +79,30 @@ def prepare_input(
     raw: dict | pd.DataFrame,
     feature_names: list[str],
     medians: dict[str, float],
-) -> pd.DataFrame:
+) -> np.ndarray:
     """Transforme un dict ou DataFrame d'entrée en matrice de features alignée.
 
-    Les colonnes manquantes sont remplies avec la médiane calculée lors de
-    l'entraînement, ce qui garantit que l'ordre et le nombre de features
-    correspondent toujours à ceux attendus par le modèle.
+    Optimisé avec NumPy pour une latence minimale. Les colonnes manquantes
+    sont remplies avec la médiane calculée lors de l'entraînement.
     """
-    if isinstance(raw, dict):
-        frame = pd.DataFrame([raw])
+    if isinstance(raw, pd.DataFrame):
+        # On suppose qu'il n'y a qu'une ligne pour l'inférence temps réel
+        raw_dict = raw.to_dict("records")[0]
     else:
-        frame = raw.copy()
+        raw_dict = raw
 
-    # On ajoute les colonnes manquantes afin de disposer de toutes les features du modèle.
-    for col in feature_names:
-        if col not in frame.columns:
-            frame[col] = np.nan
+    # Créer un array numpy pré-rempli avec les médianes
+    # On utilise float32 car c'est souvent suffisant et plus rapide pour l'inférence
+    arr = np.array([medians.get(col, 0.0) for col in feature_names], dtype=np.float32)
 
-    # On ne conserve que les colonnes attendues et dans le bon ordre.
-    frame = frame[feature_names]
+    # Remplacer par les valeurs présentes dans l'entrée
+    for i, col in enumerate(feature_names):
+        if col in raw_dict:
+            try:
+                val = float(raw_dict[col])
+                if not np.isnan(val):
+                    arr[i] = val
+            except (ValueError, TypeError):
+                pass  # Garder la médiane en cas de valeur non convertible
 
-    # Les valeurs non convertibles en numérique deviennent NaN avant imputation.
-    frame = frame.apply(pd.to_numeric, errors="coerce")
-
-    # Imputation par la médiane apprise à l'entraînement.
-    frame = frame.fillna(value=medians)
-
-    # Filet de sécurité pour les colonnes dont la médiane serait absente.
-    return frame.fillna(0.0)
+    return arr.reshape(1, -1)

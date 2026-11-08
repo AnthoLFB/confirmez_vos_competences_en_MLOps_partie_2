@@ -9,12 +9,14 @@ injecter un bundle factice avant l'appel.
 from __future__ import annotations
 
 import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, status
 
 from app.core.config import settings
 from app.model_service import ModelBundle, load_model, predict, save_model
+from app.monitoring import log_prediction
 from app.schemas import ClientFeatures, HealthResponse, PredictionResponse
 
 logger = logging.getLogger("api")
@@ -78,14 +80,25 @@ def predict_endpoint(
     bundle: ModelBundle = Depends(get_bundle),
 ) -> PredictionResponse:
     """Prédit la probabilité de défaut pour un client donné."""
+    features = payload.to_feature_dict()
+    start = time.perf_counter()
     try:
-        result = predict(bundle, payload.to_feature_dict())
+        result = predict(bundle, features)
     except Exception as exc:  # pragma: no cover - garde-fou défensif
         logger.exception("Erreur pendant la prédiction")
+        log_prediction(
+            settings.log_dir, inputs=features, output=None,
+            latency_ms=(time.perf_counter() - start) * 1000,
+            status_code=500, error=str(exc),
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur interne pendant la prédiction : {exc}",
         ) from exc
+    log_prediction(
+        settings.log_dir, inputs=features, output=result,
+        latency_ms=(time.perf_counter() - start) * 1000, status_code=200,
+    )
     return PredictionResponse(**result)
 
 

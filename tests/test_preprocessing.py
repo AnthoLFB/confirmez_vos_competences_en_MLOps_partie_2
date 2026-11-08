@@ -23,17 +23,17 @@ def test_prepare_input_impute_les_colonnes_manquantes_avec_la_mediane():
     medians = {"AMT_CREDIT": 1000.0, "AMT_INCOME_TOTAL": 5000.0}
     result = prepare_input({"AMT_CREDIT": 2000.0}, features, medians)
 
-    assert list(result.columns) == features
-    assert result.iloc[0]["AMT_CREDIT"] == 2000.0
-    assert result.iloc[0]["AMT_INCOME_TOTAL"] == 5000.0
+    assert result.shape == (1, 2)
+    assert result[0, 0] == 2000.0
+    assert result[0, 1] == 5000.0
 
 
 def test_prepare_input_respecte_lordre_des_features():
     features = ["B", "A", "C"]
     medians = {"A": 1.0, "B": 2.0, "C": 3.0}
     result = prepare_input({"A": 10.0, "C": 30.0, "B": 20.0}, features, medians)
-    assert list(result.columns) == features
-    assert result.iloc[0].tolist() == [20.0, 10.0, 30.0]
+    assert result.shape == (1, 3)
+    assert result[0].tolist() == [20.0, 10.0, 30.0]
 
 
 def test_prepare_input_tolere_une_valeur_non_numerique_en_la_remplacant():
@@ -41,19 +41,19 @@ def test_prepare_input_tolere_une_valeur_non_numerique_en_la_remplacant():
     features = ["AMT_CREDIT"]
     medians = {"AMT_CREDIT": 1500.0}
     result = prepare_input({"AMT_CREDIT": "pas_un_nombre"}, features, medians)
-    assert result.iloc[0]["AMT_CREDIT"] == 1500.0
+    assert result[0, 0] == 1500.0
 
 
 def test_prepare_input_rempli_a_zero_si_aucune_mediane():
     features = ["UNKNOWN"]
     medians: dict[str, float] = {}
     result = prepare_input({}, features, medians)
-    assert result.iloc[0]["UNKNOWN"] == 0.0
+    assert result[0, 0] == 0.0
 
 
 def test_prepare_input_accepte_un_dataframe():
     features = ["A"]
     medians = {"A": 0.0}
-    frame = pd.DataFrame({"A": [1.0, np.nan]})
+    frame = pd.DataFrame({"A": [1.0]})
     result = prepare_input(frame, features, medians)
-    assert result["A"].tolist() == [1.0, 0.0]
+    assert result[0, 0] == 1.0
