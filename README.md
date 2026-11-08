@@ -64,7 +64,7 @@ features, les médianes d'imputation et le seuil de décision optimal.
 ## Lancement de l'API
 
 ```powershell
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+uv run python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 ou plus simplement :
@@ -234,6 +234,52 @@ Les tests couvrent :
 **Analyse** : `python scripts/monitor.py` compare les inputs loggés à un échantillon de `data/application_train.csv` (référence) avec Evidently (`reports/drift_report.html`) et vérifie le taux d'erreur (>5 %), la latence p95 (>500 ms) et la part de colonnes en drift (>30 %). Code retour 1 en cas d'alerte (planifiable via cron/CI).
 
 **Points de vigilance** : minimum de 30 requêtes pour le drift ; surveiller la distribution des scores et du taux de refus ; le drift des inputs ne prouve pas une baisse de performance (les labels réels arrivent en différé) ; ré-entraîner si un drift persistant est confirmé.
+
+## Dashboard de Monitoring
+
+Un tableau de bord interactif **Streamlit** est disponible pour visualiser les performances en temps réel.
+
+```powershell
+uv run streamlit run scripts/dashboard.py
+```
+
+Il affiche :
+- Les métriques clés : volume d'appels, taux d'erreur, latence moyenne et p95.
+- La distribution des probabilités de défaut (avec rappel du seuil métier).
+- La répartition des codes de réponse HTTP.
+- L'intégration directe du rapport de **Data Drift** (Evidently).
+
+## Optimisation et Profiling
+
+L'API a été profilée pour garantir des performances optimales en production.
+
+```powershell
+# Génère un rapport top-20 des fonctions les plus lourdes
+$env:PYTHONPATH="."
+uv run python scripts/profile_api.py
+```
+
+Résultats de l'optimisation :
+- **Chargement Singleton** : Le modèle LightGBM est chargé une seule fois au démarrage (`lifespan`), évitant des pics de latence et de mémoire.
+- **LightGBM Native** : L'utilisation de l'API native (booster) plutôt que le wrapper sklearn réduit l'overhead d'inférence.
+- **Validation Pydantic** : Un schéma hybride (champs fixes + dictionnaire ouvert) concilie sécurité métier et flexibilité technique.
+
+## Stockage des données de production
+
+Les données sont actuellement stockées en local au format **JSON Lines** (`logs/predictions_*.jsonl`). Ce format est choisi pour sa robustesse (une ligne = un record) et sa facilité d'ingestion par des outils de type ELK (Elasticsearch, Logstash, Kibana) ou des bases de données relationnelles.
+
+**Schéma des données logguées :**
+- `timestamp` : Date/Heure UTC (ISO 8601).
+- `inputs` : Features envoyées au modèle (anonymisées, pas d'ID client).
+- `output` : Résultat du modèle (probabilité, décision, seuil).
+- `latency_ms` : Temps de traitement de la requête.
+- `status_code` : Code HTTP de retour (200, 422, 500, etc.).
+
+### Évolutions recommandées
+Pour un passage à l'échelle (plusieurs instances d'API), il est recommandé de centraliser ces logs vers :
+1. **PostgreSQL** : Pour des requêtes analytiques précises sur les performances.
+2. **Elasticsearch** : Pour une visualisation temps réel via Kibana.
+3. **S3 / Blob Storage** : Pour l'archivage long terme et le ré-entraînement.
 
 ### Les métriques expliquées
 
